@@ -21,7 +21,10 @@ begin
 	using PlutoUI
 	using Clapeyron, ForwardDiff, NLSolvers, GenericLinearAlgebra, Polynomials
 	using Plots, Colors, ColorSchemes, Measures, LaTeXStrings
+end
 
+# ╔═╡ cc79b09b-3f04-4ec6-800a-300e818e4b47
+begin
 	myscheme = ColorScheme([colorant"#4063D8",
 	                        colorant"#009B72",
 	                        colorant"#FFB400",
@@ -44,6 +47,10 @@ begin
 	        right_margin = 10mm,
 	        left_margin = 5mm,
 	        bottom_margin = 5mm)
+
+	f(ϕ, χ, N) = ϕ/N[1]*log(ϕ) + (1-ϕ)/N[2]*log(1-ϕ) + χ*ϕ*(1-ϕ)
+	df(ϕ,χ,N) = ForwardDiff.derivative(x->f(x,χ,N),ϕ)
+	d2f(ϕ,χ,N) = ForwardDiff.derivative(x->df(x,χ,N),ϕ)
 end
 
 # ╔═╡ 6f4e97ed-e6b5-42d0-8278-77d9228928e3
@@ -55,9 +62,6 @@ md"""
 md"""
 ## Flory–Huggins equation
 """
-
-# ╔═╡ 314f3f13-b9ec-41c1-8bb8-78bd2ec4e916
-f(ϕ, χ, N) = ϕ/N[1]*log(ϕ) + (1-ϕ)/N[2]*log(1-ϕ) + χ*ϕ*(1-ϕ)
 
 # ╔═╡ b9f5b754-0d43-4781-83af-fb4c3354896c
 @bind χN Slider(0:0.01:4)
@@ -89,7 +93,7 @@ Plot:
 """
 
 # ╔═╡ f8ce2c98-d7a9-47d3-a1d9-6ebd5864442d
-@bind plotting MultiCheckBox(["Entropy", "Energy", "Free energy", "Binodal", "Spinodal"])
+@bind plotting MultiCheckBox(["Entropy", "Energy", "Free energy", "Binodal", "Spinodal"], default=["Entropy"])
 
 # ╔═╡ bcaf0891-2f13-4b98-84ad-fb390d3040cb
 begin
@@ -97,8 +101,6 @@ begin
 	χ = χN/√(N₁*N₂)
 	ϕ = LinRange(1e-5,1-1e-5,1000)
 	_f = f.(ϕ,χN/√(N₁*N₂),Ref([N₁,N₂]))
-	df(ϕ,χ,N) = ForwardDiff.derivative(x->f(x,χ,N),ϕ)
-	d2f(ϕ,χ,N) = ForwardDiff.derivative(x->df(x,χ,N),ϕ)
 	plt = plot(xlabel=L"$\phi$", ylabel=L"$\beta\Delta X_\mathrm{mix}$", xlims=(0,1))
 	if "Entropy" in plotting
 		plot!(plt, ϕ, _f - χN/√(N₁*N₂).*ϕ.*(1 .-ϕ), label=L"\Delta S_\mathrm{mix}")
@@ -251,7 +253,7 @@ N₁ = $(N₁r)
 """
 
 # ╔═╡ f9fddf72-a91b-4d49-9a02-01b44a178097
-@bind N₂r Slider(1:1:10)
+@bind N₂r Slider(1:1:10, default=8)
 
 # ╔═╡ 2f05e3ce-9c9a-4f4e-8634-bac6ad054484
 md"""
@@ -259,7 +261,7 @@ N₂ = $(N₂r)
 """
 
 # ╔═╡ 994686ef-2387-4b00-8ee8-d01577f87035
-@bind A Slider(0.5:0.01:2)
+@bind A Slider(0.5:0.01:2, default=0.7)
 
 # ╔═╡ f675f420-f2d2-4d59-a4b9-e597101bc2be
 md"""
@@ -267,7 +269,7 @@ A = $(A)
 """
 
 # ╔═╡ 109e1db9-bf3f-4ad8-a872-ca8fa305be39
-@bind B Slider(-500:1:500)
+@bind B Slider(-500:1:500, default=175)
 
 # ╔═╡ be9e76f2-67ed-4494-963b-d2a0153a7e7d
 md"""
@@ -294,6 +296,7 @@ begin
 
 	is_split = χr .>= χcr
 
+	pltr = plot(xlims=(0,1), ylims=(300,1000), ylabel=L"$T / K$", xlabel=L"$\phi$")
 	
 	if any(is_split)
 		if maximum(χr) == χr[1]
@@ -331,15 +334,13 @@ begin
 			p3 = Polynomial([N₂r,(N₁r-N₂r-2*χr[i]*N₁r*N₂r),2*χr[i]*N₁r*N₂r])
 			(ϕᵢsr[i],ϕᵢᵢsr[i]) = real.(roots(p3))
 		end
-		pltr = plot(exp10.(ϕᵢr[id_start:step:id_end]),T[id_start:step:id_end], label="binodal",xlims=(0,1), ylims=(300,1000), ylabel=L"$T / K$", xlabel=L"$\phi$")
+		plot!(exp10.(ϕᵢr[id_start:step:id_end]),T[id_start:step:id_end], label="binodal")
 		plot!(ϕᵢsr[id_start:step:id_end],T[id_start:step:id_end], label="spinodal",color=myscheme[2], linestyle=:dash)
 		plot!(ϕᵢᵢsr[id_start:step:id_end],T[id_start:step:id_end], label="",color=myscheme[2], linestyle=:dash)
 		plot!(pltr, 1 .-exp10.(ϕᵢᵢr[id_start:step:id_end]), T[id_start:step:id_end], color=myscheme[1], label="")
 		scatter!(pltr,[√(N₂r)/(√(N₁r)+√(N₂r))],[Tc],markerstrokecolor=myscheme[4], color=:white,label="critical point")
-		pltr
 	end
-
-	
+	pltr
 end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
@@ -1927,9 +1928,9 @@ version = "1.4.1+2"
 
 # ╔═╡ Cell order:
 # ╟─7eb93ba0-eda3-11ef-082e-29b1091e9c5a
+# ╟─cc79b09b-3f04-4ec6-800a-300e818e4b47
 # ╟─6f4e97ed-e6b5-42d0-8278-77d9228928e3
 # ╟─129c8d83-15dd-4bd3-955e-d71fb0eddea6
-# ╠═314f3f13-b9ec-41c1-8bb8-78bd2ec4e916
 # ╟─9ae6c443-56b7-476a-b343-8983891049ae
 # ╟─b9f5b754-0d43-4781-83af-fb4c3354896c
 # ╟─929b71f9-44aa-4bb1-bf03-8e8b8c9470f0
